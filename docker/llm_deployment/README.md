@@ -37,11 +37,11 @@ RagFlow-Plus 웹 인터페이스에서 다음과 같이 설정합니다:
 
 ## 2. 오류 해결 가이드
 
-### 2.1 "Model ${모델이름}___VLLM@VLLM is not authorized" 오류
+~~### 2.1 "Model ${모델이름}___VLLM@VLLM is not authorized" 오류~~
 
 이 오류는 모델명 불일치로 인해 발생합니다. 다음 단계로 해결할 수 있습니다:
-
-#### Step 1: Tenant ID 확인
+** -> vLLM 으로 모델 등록 X, localLLM으로 등록시 해결 가능 **
+#### Step 1: Tenant ID 확인 
 
 모델 관련 정보는 `ragflowplus-mysql` 컨테이너의 `tenant_llm` 테이블에 저장됩니다.
 
