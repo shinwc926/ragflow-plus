@@ -17,15 +17,22 @@
 import logging
 import json
 import re
+import os
+import sys
+from pathlib import Path
 from rag.utils.doc_store_conn import MatchTextExpr
 
 from rag.nlp import rag_tokenizer, term_weight, synonym
 
+# 한국어 지원 모듈 import
+from .korean import KoreanQueryProcessor
+from .korean.korean_utils import korean_logger
 
 class FulltextQueryer:
     def __init__(self):
         self.tw = term_weight.Dealer()
         self.syn = synonym.Dealer()
+        self.korean_processor = KoreanQueryProcessor()
         self.query_fields = [
             "title_tks^10",
             "title_sm_tks^5",
@@ -107,6 +114,7 @@ class FulltextQueryer:
     def question(self, txt, tbl="qa", min_match: float = 0.6):
         """
         根据输入的文本生成查询表达式，用于在数据库中匹配相关问题。
+        한국어 감지 및 품사태깅 기반 검색 지원.
 
         参数:
         - txt (str): 输入的文本。
@@ -117,6 +125,20 @@ class FulltextQueryer:
         - MatchTextExpr: 生成的查询表达式对象。
         - keywords (list): 提取的关键词列表。
         """
+        # 1. 한국어 감지 및 전처리
+        original_txt = txt
+        if KoreanQueryProcessor.is_korean_text(txt):
+            korean_logger.info(f" [FULLTEXT] 한국어 쿼리 감지: {txt}")
+            korean_logger.debug(f" [FULLTEXT] min_match: {min_match}")
+            
+            # 한국어 전용 처리
+            korean_query, korean_keywords = self.korean_processor.build_korean_query(txt, min_match)
+            korean_logger.info(f" [FULLTEXT] 변환된 쿼리: {korean_query}")
+            korean_logger.info(f" [FULLTEXT] 추출된 키워드: {korean_keywords}")
+            
+            return MatchTextExpr(self.query_fields, korean_query, 100, {"minimum_should_match": min_match}), korean_keywords
+        
+        # 2. 기존 중국어/영어 처리 로직 유지
         txt = FulltextQueryer.add_space_between_eng_zh(txt)  # 在英文和中文之间添加空格
         # 使用正则表达式替换特殊字符为单个空格，并将文本转换为简体中文和小写
         txt = re.sub(
@@ -338,3 +360,6 @@ class FulltextQueryer:
                 keywords.append(f"{tk}^{w}")
 
         return MatchTextExpr(self.query_fields, " ".join(keywords), 100, {"minimum_should_match": min(3, len(keywords) / 10)})
+
+    # =============================================================================
+    # End of FulltextQueryer class
