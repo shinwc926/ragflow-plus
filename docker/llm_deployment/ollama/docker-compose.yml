@@ -5,6 +5,7 @@ services:
     ports:
       - "11434:11434"
     runtime:
+      - nvidia
     volumes:
       - ollama:/root/.ollama # local host models are save in this path, or pull the model directly inside the container
     environment:
