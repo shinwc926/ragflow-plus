@@ -1080,24 +1080,39 @@ class KnowledgebaseService:
             kb_embd_info= cursor.fetchone()
 
             # 4. 시스템 설정에서 지식베이스의 임베딩 설정 찾기
-            if config:
+            if config and kb_embd_info:
+                kb_embd_id = kb_embd_info.get('embd_id', '')
+                
+                # tenant_llm 테이블에서 일치하는 설정 찾기
                 for row in config:
                     if row["llm_name"] and "___" in row["llm_name"]:
                         row["llm_name"] = row["llm_name"].split("___")[0]
-                    if row["llm_name"]==kb_embd_info['embd_id']:
+                    if row["llm_name"] == kb_embd_id:
                         llm_name = row.get("llm_name", "")
                         api_key = row.get("api_key", "")
                         api_base = row.get("api_base", "")
-
-                        # # 실리콘플로우 플랫폼 특이 처리
-                        # if llm_name == "netease-youdao/bce-embedding-base_v1":
-                        #     llm_name = "BAAI/bge-m3"
 
                         # API base가 빈 문자열이면 실리콘플로우 기본값 사용
                         if api_base == "":
                             api_base = "https://api.siliconflow.cn/v1/embeddings"
 
+                        print(f"[KB-INFO] 지식베이스 임베딩 설정 찾음: model={llm_name}, api_base={api_base}")
                         return {"llm_name": llm_name, "api_key": api_key, "api_base": api_base}
+                
+                # 일치하는 설정을 찾지 못한 경우, 지식베이스의 embd_id를 그대로 사용
+                # 첫 번째 설정의 api_base와 api_key를 기본값으로 사용
+                default_api_base = config[0].get("api_base", "http://localhost:11434")
+                default_api_key = config[0].get("api_key", "")
+                
+                if default_api_base == "":
+                    default_api_base = "https://api.siliconflow.cn/v1/embeddings"
+                
+                print(f"[KB-WARNING] tenant_llm에서 '{kb_embd_id}' 설정을 찾지 못함. 지식베이스 embd_id를 직접 사용: model={kb_embd_id}, api_base={default_api_base}")
+                return {"llm_name": kb_embd_id, "api_key": default_api_key, "api_base": default_api_base}
+            
+            # config가 없거나 kb_embd_info가 없는 경우 기본값 반환
+            print(f"[KB-WARNING] 임베딩 설정을 찾을 수 없음. 기본값 반환")
+            return {"llm_name": "bge-m3", "api_key": "", "api_base": "http://localhost:11434"}
 
         except Exception as e:
             print(f"지식베이스 임베딩 설정 가져오기 오류: {e}")
