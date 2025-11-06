@@ -6,25 +6,35 @@ services:
       - "11434:11434"
     runtime:
       - nvidia
+    healthcheck:
+      test: ["CMD", "ollama", "list"] #healthcheck trick
+      interval: 10s
+      timeout: 5s
+      retries: 5 #due to hg retry limit policy
+      start_period: 60s
     volumes:
       - ollama:/root/.ollama # local host models are save in this path, or pull the model directly inside the container
     environment:
       # CORS
-      - OLLAMA_ORIGINS=* 
+      - OLLAMA_ORIGINS=* # open to all
       # GPU
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       # OLLAMA ENVIRONMENT SETTING
       - OLLAMA_HOST=0.0.0.0:11434
-      - OLLAMA_LOG_LEVEL=INFO
-      - OLLAMA_FLASH_ATTENTION=TRUE
-      - OLLAMA_NUM_PARALLEL=8
-      - OLLAMA_GPU_LAYERS=999
-      - OLLAMA_MAX_QUEUE=512
+      - OLLAMA_LOG_LEVEL=INFO 
+      # OLLAMA_DEBUG=1 # for ollama error log
+      - OLLAMA_FLASH_ATTENTION=TRUE # for fast calculation
+      - OLLAMA_NUM_PARALLEL=8 
+      - OLLAMA_GPU_LAYERS=999 #load all transformer layer to gpu(no cpu offload)
+      - OLLAMA_MAX_QUEUE=512 # waiting queue
       - OLLAMA_BATCH=1024
-      - OLLAMA_KEEP_ALIVE=30m
+      - OLLAMA_KEEP_ALIVE=30m # keep model live after dialog ends
     command: serve
-
+      # required to operate with warmup
+    restart: on-failure: 3 # due to restart policy
+    pid_limit: 4000 # due to hg pid policy
+    read_only : true # due to hg policy
 networks:
   default:
     driver: bridge
@@ -35,4 +45,4 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: ${VOLUME PATH TO MOUNT}
+      device: ${VOLUME PATH TO MOUNT} 
